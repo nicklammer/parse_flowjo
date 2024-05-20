@@ -15,18 +15,16 @@ def excelOpen(file_raw):
     return(df)
 
 def excelFilter(df, depth, fluor):
-    # depth is an integer
     depth_str = "> " * depth
-    if fluor[-1] == "+":
-        fluor_escape = fluor.replace("+", "\\+")
-    elif fluor[-1] == "-":
-        fluor_escape = fluor.replace("-", "\\-")
-    else:
-        fluor_escape = fluor
-    df_filter = df[
-        (df['Depth'] == depth_str) &
-        (df['Name'].str.contains(fluor_escape))
-        ]
+    df_depth = df[df['Depth'] == depth_str]
+    df_filter = pd.DataFrame(columns=df_depth.columns)
+    for i, row in df_depth.iterrows():
+        # plate levels are separated by "/"
+        # get the last part and see if it matches fluor
+        name = row['Name']
+        name_end = name.split("/")[-1]
+        if fluor == name_end:
+            df_filter.loc[i] = row
     return(df_filter)
 
 def transformData(df):
@@ -41,6 +39,13 @@ def transformData(df):
 
         stats.append(row['Statistic'])
         cellcounts.append(row['#Cells'])
+    # column format dataframe for saving
+    df_columns = pd.DataFrame(
+        {"Well": wells,
+         "Statistic": stats,
+         "#Cells": cellcounts
+         }
+    )
 
     # hard coded plate row and column names
     letters = ["A", "B", "C", "D", "E", "F", "G", "H"]
@@ -80,9 +85,9 @@ def transformData(df):
     df_stats = pd.DataFrame.from_dict(stats_dict, orient = "index", columns = numbers)
     df_cellcounts = pd.DataFrame.from_dict(cellcounts_dict, orient = "index", columns = numbers)
 
-    return(df_stats, df_cellcounts)
+    return(df_columns, df_stats, df_cellcounts)
         
-def excelWrite(df_stats, df_cellcounts, fluor, out_path):
+def excelWrite(df_columns, df_stats, df_cellcounts, fluor, out_path):
     dfs = [df_stats, df_cellcounts]
     index_labels = ["Statistics", "#Cells"]
     startrow = 0
@@ -94,6 +99,7 @@ def excelWrite(df_stats, df_cellcounts, fluor, out_path):
                         index_label = index_labels[i],
                         sheet_name = fluor)
             startrow += (df.shape[0] + 2)
+        df_columns.to_excel(writer, index = False, sheet_name = "Columns")
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -110,7 +116,7 @@ if __name__ == "__main__":
 
     df = excelOpen(file_raw)
     df_filter = excelFilter(df, depth, fluor)
-    df_stats, df_cellcounts = transformData(df_filter)
-    excelWrite(df_stats, df_cellcounts, fluor, out_path)
+    df_columns, df_stats, df_cellcounts = transformData(df_filter)
+    excelWrite(df_columns, df_stats, df_cellcounts, fluor, out_path)
 
     messagebox.showinfo(message = f"Done! File saved at {out_path}.")
