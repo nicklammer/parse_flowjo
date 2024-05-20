@@ -39,6 +39,12 @@ def transformData(df):
 
         stats.append(row['Statistic'])
         cellcounts.append(row['#Cells'])
+
+    # hard coded plate row and column names
+    letters = ["A", "B", "C", "D", "E", "F", "G", "H"]
+    numbers = ["1", "2", "3", "4", "5", "6", "7", "8",
+               "9", "10", "11", "12"]
+
     # column format dataframe for saving
     df_columns = pd.DataFrame(
         {"Well": wells,
@@ -46,11 +52,13 @@ def transformData(df):
          "#Cells": cellcounts
          }
     )
-
-    # hard coded plate row and column names
-    letters = ["A", "B", "C", "D", "E", "F", "G", "H"]
-    numbers = ["1", "2", "3", "4", "5", "6", "7", "8",
-               "9", "10", "11", "12"]
+    df_columns = df_columns.set_index("Well")
+    # create new index to sort by plate column (number)
+    well_index_new = []
+    for number in numbers:
+        for letter in letters:
+            well_index_new.append(letter+number)
+    df_columns_sorted = df_columns.reindex(well_index_new)
 
     # this long thing makes a dictionary assigning stats and cell counts
     # based on the well ID in the sample name
@@ -85,7 +93,7 @@ def transformData(df):
     df_stats = pd.DataFrame.from_dict(stats_dict, orient = "index", columns = numbers)
     df_cellcounts = pd.DataFrame.from_dict(cellcounts_dict, orient = "index", columns = numbers)
 
-    return(df_columns, df_stats, df_cellcounts)
+    return(df_columns_sorted, df_stats, df_cellcounts)
         
 def excelWrite(df_columns, df_stats, df_cellcounts, fluor, out_path):
     dfs = [df_stats, df_cellcounts]
@@ -99,7 +107,7 @@ def excelWrite(df_columns, df_stats, df_cellcounts, fluor, out_path):
                         index_label = index_labels[i],
                         sheet_name = fluor)
             startrow += (df.shape[0] + 2)
-        df_columns.to_excel(writer, index = False, sheet_name = "Columns")
+        df_columns.to_excel(writer, sheet_name = "Columns")
 
 if __name__ == "__main__":
     root = tk.Tk()
@@ -116,7 +124,7 @@ if __name__ == "__main__":
 
     df = excelOpen(file_raw)
     df_filter = excelFilter(df, depth, fluor)
-    df_columns, df_stats, df_cellcounts = transformData(df_filter)
-    excelWrite(df_columns, df_stats, df_cellcounts, fluor, out_path)
+    df_columns_sorted, df_stats, df_cellcounts = transformData(df_filter)
+    excelWrite(df_columns_sorted, df_stats, df_cellcounts, fluor, out_path)
 
     messagebox.showinfo(message = f"Done! File saved at {out_path}.")
